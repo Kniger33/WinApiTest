@@ -1,19 +1,12 @@
-﻿//g++ lab2.cpp -o lab2 -lgdi32
-
-#include "windows.h"	//Большая часть кода
-#include <cstdio>		//sprintf()
-
-#include <iostream>
-#include <iomanip>
-#include <algorithm>	//max()
-#include <limits>		//numeric_limits()
-
-//using namespace std;
+﻿#include "windows.h"	
+#include <cstdio>		
+#include <algorithm>	
+#include <limits>		
 
 struct  Move
 {
-	unsigned int x;
-	unsigned int y;
+	int x;
+	int y;
 };
 
 BOOL RegClass(WNDPROC, LPCTSTR, UINT);
@@ -30,18 +23,16 @@ void ComputerTurn(HDC);
 
 BOOL isSquareFree(int, int);
 BOOL isTie();
-BOOL checkWin(char);
+BOOL isWinner(char);
 
 Move Minimax();
-
-int maxSearch();
-int minSearch();
+int MaxSearch();
+int MinSearch();
 
 HWND hwnd;
 
 char gameField[3][3] = {' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '};
 char symbol;
-char winner[20] = "Not yet";
 
 int xMouse, yMouse;
 
@@ -79,14 +70,13 @@ int WINAPI WinMain(HINSTANCE hInst,	HINSTANCE hPrevInstance, LPSTR lpCmdLine, in
 			ComputerTurn(hdc);
 		}
 
-
-		if (checkWin('X'))
+		if (isWinner('X'))
 		{
 			MessageBox(hwnd, "Player wins", "Winner", MB_OK);
 			SendMessage(hwnd, WM_CLOSE, 0, 0);
 		}
 
-		if (checkWin('O'))
+		if (isWinner('O'))
 		{
 			MessageBox(hwnd, "Computer wins", "Winner", MB_OK);
 			SendMessage(hwnd, WM_CLOSE, 0, 0);
@@ -146,57 +136,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				char str[64];
 				sprintf(str, "There is already cross/zero \nPlease, try again", xMouse / 100, yMouse / 100);
 				MessageBox(hWnd, (LPCTSTR)str, "XY", MB_OK);
-			}		
+			}	
 
-
-			isComputerTurn = true;
-			ReleaseDC(hWnd, hdc);
+			isComputerTurn = true;		
 			break;
-		}
-
-		case WM_LBUTTONUP:
-		{			
-			xMouse = LOWORD(lParam);
-			yMouse = HIWORD(lParam);
-
-			if (checkWin('X'))
-			{
-				MessageBox(hwnd, "Player wins", "Winner", MB_OK);
-				SendMessage(hwnd, WM_CLOSE, 0, 0);
-			}
-			/*
-			char str[64];
-			sprintf(str, "%c %c %c \n%c %c %c \n%c %c %c", gameField[0][0], gameField[0][1], gameField[0][2],
-				gameField[1][0], gameField[1][1], gameField[1][2],
-				gameField[2][0], gameField[2][1], gameField[2][2]);
-			MessageBox(hwnd, (LPCTSTR)str, "GF", MB_OK);
-			*/
-			ReleaseDC(hWnd, hdc);
-			break;
-		}
-
-		case WM_RBUTTONDOWN:
-		{
-			xMouse = LOWORD(lParam);
-			yMouse = HIWORD(lParam);
-			
-			hdc = GetDC(hWnd);
-			
-			if (isSquareFree(xMouse, yMouse))
-			{
-				Ellipse(hdc, (xMouse / 100) * 100, (yMouse / 100) * 100, (xMouse / 100 + 1) * 100, (yMouse / 100 + 1) * 100);
-				symbol = 'O';
-				gameField[xMouse / 100][yMouse / 100] = symbol;
-			}
-			else
-			{
-				char str[64];
-				sprintf(str, "There is already cross/zero \nPlease, try again", xMouse / 100, yMouse / 100);
-				MessageBox(hWnd, (LPCTSTR)str, "XY", MB_OK);
-			}		
-			isComputerTurn = true;
-			break;
-		}
+		}			
 
 		case WM_PAINT:
 		{			
@@ -241,24 +185,16 @@ void DrawCross(HDC hdc, int left, int top)
 //Ход компьютера
 void ComputerTurn(HDC hdc)
 {
-	
-
+	if (isTie())
+	{
+		MessageBox(hwnd, "Its tie", "Tie", MB_OK);
+		SendMessage(hwnd, WM_CLOSE, 0, 0);
+	}
 	Move computerMove = Minimax();
 
 	Ellipse(hdc, computerMove.x * 100, computerMove.y * 100, (computerMove.x + 1) * 100, (computerMove.y + 1) * 100);
 	symbol = 'O';
 	gameField[computerMove.x][computerMove.y] = symbol;
-	
-	ReleaseDC(hwnd, hdc);
-
-
-	
-
-	char str[64];
-	sprintf(str, "%c %c %c \n%c %c %c \n%c %c %c", gameField[0][0], gameField[0][1], gameField[0][2],
-		gameField[1][0], gameField[1][1], gameField[1][2],
-		gameField[2][0], gameField[2][1], gameField[2][2]);
-	MessageBox(hwnd, (LPCTSTR)str, "GF", MB_OK);
 	
 	isComputerTurn = false;
 }
@@ -278,7 +214,7 @@ BOOL isSquareFree(int _xMouse, int _yMouse)
 
 BOOL isTie()
 {
-	for (unsigned int i = 0; i < 3; i++)
+	for (int i = 0; i < 3; i++)
 	{
 		if (gameField[i][0] == ' ' || gameField[i][1] == ' ' || gameField[i][2] == ' ')
 		{
@@ -288,27 +224,32 @@ BOOL isTie()
 	return true;
 }
 
-BOOL checkWin(char player)
+BOOL isWinner(char player)
 {
-	for (unsigned int i = 0; i < 3; i++)
+	for (int i = 0; i < 3; i++)
 	{
-		for (unsigned int i = 0; i < 3; i++)
-		{
-			// Check horizontals
+		for (int i = 0; i < 3; i++)
+		{			
 			if (gameField[i][0] == player && gameField[i][1] == player && gameField[i][2] == player)
+			{
 				return true;
-
-			// Check verticals
+			}
+			
 			if (gameField[0][i] == player && gameField[1][i] == player && gameField[2][i] == player)
+			{
 				return true;
+			}
 		}
 
-		// Check diagonals
 		if (gameField[0][0] == player && gameField[1][1] == player && gameField[2][2] == player)
+		{
 			return true;
+		}
 
 		if (gameField[0][2] == player && gameField[1][1] == player && gameField[2][0] == player)
+		{
 			return true;
+		}
 
 		return false;
 	}
@@ -319,15 +260,15 @@ Move Minimax()
 	int score = (std::numeric_limits<int>::max)();
 	Move move;
 
-	for (unsigned int i = 0; i < 3; i++)
+	for (int i = 0; i < 3; i++)
 	{
-		for (unsigned int j = 0; j < 3; j++)
+		for (int j = 0; j < 3; j++)
 		{
 			if (gameField[i][j] == ' ')
 			{
 				gameField[i][j] = 'O';
 
-				int temp = maxSearch();
+				int temp = MaxSearch();
 
 				if (temp < score)
 				{
@@ -343,22 +284,22 @@ Move Minimax()
 	return move;
 }
 
-int maxSearch()
+int MaxSearch()
 {
-	if (checkWin('X')) { return 10; }
-	else if (checkWin('O')) { return -10; }
+	if (isWinner('X')) { return 10; }
+	else if (isWinner('O')) { return -10; }
 	else if (isTie()) { return 0; }
 
 	int score = (std::numeric_limits<int>::min)();
 
-	for (unsigned int i = 0; i < 3; i++)
+	for (int i = 0; i < 3; i++)
 	{
-		for (unsigned int j = 0; j < 3; j++)
+		for (int j = 0; j < 3; j++)
 		{
 			if (gameField[i][j] == ' ')
 			{
 				gameField[i][j] = 'X';
-				score = (std::max)(score, minSearch());
+				score = (std::max)(score, MinSearch());
 				gameField[i][j] = ' ';
 			}
 		}
@@ -367,22 +308,22 @@ int maxSearch()
 	return score;
 }
 
-int minSearch()
+int MinSearch()
 {
-	if (checkWin('X')) { return 10; }
-	else if (checkWin('O')) { return -10; }
+	if (isWinner('X')) { return 10; }
+	else if (isWinner('O')) { return -10; }
 	else if (isTie()) { return 0; }
 
 	int score = (std::numeric_limits<int>::max)();
 
-	for (unsigned int i = 0; i < 3; i++)
+	for (int i = 0; i < 3; i++)
 	{
-		for (unsigned int j = 0; j < 3; j++)
+		for (int j = 0; j < 3; j++)
 		{
 			if (gameField[i][j] == ' ')
 			{
 				gameField[i][j] = 'O';
-				score = (std::min)(score, maxSearch());
+				score = (std::min)(score, MaxSearch());
 				gameField[i][j] = ' ';
 			}
 		}
